@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title></title>
+        <style>
+            #id-canvas {
+                margin: 20px;
+                width: 400px;
+                height: 200px;
+                background-color: aliceblue;
+            }
+        </style>
+        <script src="utils.js" charset="utf-8"></script>
+        <script src="chart.js" charset="utf-8"></script>
+        <script src="synthesizer.js" charset="utf-8"></script>
+    </head>
+
+    <body>
+        <div class="ctrl-div">
+            <div id="id-adsr-text"></div>
+        </div>
+        <div>
+            <canvas id="id-canvas" width="400" height="200"></canvas>
+        </div>
+        <div>
+            <button id="happy">欢乐颂</button>
+        </div>
+        <div>
+            <!-- "custom" | "sawtooth" | "sine" | "square" | "triangle"; -->
+            波形:
+
+            <input type="radio" name="wave-type" id="id-wave-type1" class="wave-type" value="sine" />
+            <label for="id-wave-type1">正弦波</label>
+
+            <input type="radio" name="wave-type" id="id-wave-type3" class="wave-type" value="triangle" />
+            <label for="id-wave-type3">三角波</label>
+
+            <input type="radio" name="wave-type" id="id-wave-type5" class="wave-type" value="sawtooth" />
+            <label for="id-wave-type5">锯齿波</label>
+
+            <input type="radio" name="wave-type" id="id-wave-type2" class="wave-type" value="square" />
+            <label for="id-wave-type2">方波</label>
+
+            <input type="radio" name="wave-type" id="id-wave-type4" class="wave-type" value="custom" checked />
+            <label for="id-wave-type4">自定义</label>
+            <input
+                type="text"
+                id="id-harmonic"
+                size="90"
+                value="1,0.340,0.102,0.085,0.070,0.065,0.028,0.085,0.011,0.030,0.010,0.014,0.012,0.013,0.004"
+            />
+        </div>
+        <br />
+        <div id="id-keys"></div>
+        <canvas id="id-canvas2" width="400" height="200"></canvas>
+        <script>
+            const adsrDict = {
+                a: 0,
+                d: 40,
+                s: 250,
+                r: 70,
+                sa: 10,
+            };
+
+            const notes = {
+                c4: 261.63,
+                d4: 293.66,
+                e4: 329.63,
+                f4: 349.23,
+                g4: 392,
+                a4: 440,
+                b4: 493.88,
+
+                b3: 246.94,
+                a3: 220,
+                g3: 196,
+                f3: 174.61,
+                e3: 164.81,
+                d3: 146.83,
+                c3: 130.81,
+                b2: 123.47,
+                a2: 110,
+            };
+
+            let generatekeys = function () {
+                let container = _e('#id-keys');
+                for (let i = 0; i < Object.keys(notes).length; i++) {
+                    let k = Object.keys(notes)[i];
+                    let t = `<button type="button" class="key" id="id-${k}" data-f="${notes[k]}" data-i="${i}">${k}</button>`;
+                    appendHtml(container, t);
+                }
+            };
+
+            let playHappy = function (sound) {
+                let hight = `e4 e4 f4 g4 | g4 f4 e4 d4 | c4 c4 d4 e4 | e4*1.5 d4*0.5 d4*2
+                        e4 e4 f4 g4 | g4 f4 e4 d4 | c4 c4 d4 e4 | d4*1.5 c4*0.5 c4*2
+                        d4 d4 e4 c4 | d4 e4*0.5 f4*0.5 e4 c4 | d4 e4*0.5 f4*0.5 e4 d4 | c4 d4 g3 e4
+                        e4 e4 f4 g4 | g4 f4 e4 d4 | c4 c4 d4 e4 | d4*1.5 c4*0.5 c4*2
+                        d4 d4 e4 c4 | d4 e4*0.5 f4*0.5 e4 c4 | d4 e4*0.5 f4*0.5 e4 d4 | c4 d4 g3 e4
+                        e4 e4 f4 g4 | g4 f4 e4 d4 | c4 c4 d4 e4 | d4*1.5 c4*0.5 c4*2`;
+                let low = `g3 a3 | b3 g3 | e3 f3 | g3 f3
+                            g3 a3  | b3 g3 | e3 d3 | g3 e3
+                            f3 g3 | f3 g3 | f3 g3 | e3 b2*0.5 g3*0.5
+                            g3 a3 | b3 g3 | e3 f3 | g3 e3
+                            f3 g3 | f3 g3 | f3 g3 | e3 b2*0.5 g3*0.5
+                            g3 a3 | b3 g3 | e3 f3 | g3 e3
+                            `;
+                const playHight = async () => {
+                    const source = tansPcm(hight);
+                    for (let i = 0; i < source.length; i++) {
+                        const item = source[i];
+                        const k = item[0];
+                        const key = i + '-happyHight';
+                        const btn = _e(`#id-${k}`);
+                        btn.style.backgroundColor = 'cornflowerblue';
+                        sound.keyPressed(key, notes[k]);
+                        await sleep(item[1] - item[1] / 6);
+                        sound.keyReleased(key);
+                        await sleep(item[1] / 6);
+                        btn.style.backgroundColor = '';
+                        adsrDict.r = 70;
+                    }
+                };
+
+                const playLow = async () => {
+                    const source = tansPcm(low);
+                    for (let i = 0; i < source.length; i++) {
+                        const item = source[i];
+                        const k = item[0];
+                        const t = item[1] * 2;
+                        const key = i + '-happyLow';
+                        sound.keyPressed(key, notes[k]);
+                        await sleep(t - t / 6);
+                        sound.keyReleased(key);
+                        await sleep(t / 6);
+                    }
+                };
+
+                adsrDict.r = 10;
+                playHight();
+                // playLow();
+            };
+
+            let __main = function () {
+                generatekeys();
+
+                let chart = new Chart();
+                chart.draw();
+
+                let s = new Synthesizer();
+                s.draw();
+
+                bindAll('.key', 'mousedown', function (event) {
+                    let target = event.target;
+                    let index = target.dataset.i;
+                    let t = _es('.key')[index];
+                    t.style.backgroundColor = 'cornflowerblue';
+                    s.keyPressed(index, target.dataset.f);
+                });
+
+                bindAll('.key', 'mouseup', function (event) {
+                    let target = event.target;
+                    let index = target.dataset.i;
+                    let t = _es('.key')[index];
+                    t.style.backgroundColor = '';
+                    s.keyReleased(target.dataset.i);
+                });
+
+                let keydown = [];
+                window.addEventListener('keypress', function (event) {
+                    let key = event.key;
+                    if ('qwertyuiop['.includes(key)) {
+                        let index = 'qwertyuiop['.indexOf(key);
+                        if (!keydown[index]) {
+                            let t = _es('.key')[index];
+                            keydown[index] = true;
+                            t.style.backgroundColor = 'cornflowerblue';
+                            s.keyPressed(index, t.dataset.f);
+                        }
+                    }
+                });
+                window.addEventListener('keyup', function (event) {
+                    let key = event.key;
+                    if ('qwertyuiop['.includes(key)) {
+                        let index = 'qwertyuiop['.indexOf(key);
+                        let t = _es('.key')[index];
+                        s.keyReleased(index);
+                        t.style.backgroundColor = '';
+
+                        keydown[index] = false;
+                    }
+                });
+
+                bind('#happy', 'click', () => {
+                    playHappy(s);
+                });
+            };
+
+            __main();
+        </script>
+    </body>
+</html>
